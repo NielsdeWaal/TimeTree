@@ -14,7 +14,7 @@ TEST_CASE("Basic tree tests", "[TimeTree]") {
   REQUIRE(tree.GetHeight() == 1);
   tree.Insert(2, 2, 0);
   REQUIRE(tree.GetHeight() == 1);
-  // REQUIRE(startingRoot->GetChildCount() == 2);
+  REQUIRE(startingRoot->GetChildCount() == 2);
   REQUIRE(tree.GetNumberLeafs() == 1);
 
   tree.Insert(3, 3, 0);
@@ -23,19 +23,26 @@ TEST_CASE("Basic tree tests", "[TimeTree]") {
   tree.PrintTree();
 
   REQUIRE(tree.GetHeight() == 2);
+  REQUIRE(tree.GetNumberLeafs() == 2);
   REQUIRE(startingRoot != newRoot);
-  REQUIRE(newRoot->GetChildCount() == 1);
+  REQUIRE(newRoot->GetChildCount() == 2);
+
+  auto iter = tree.GetLeafsIterator();
+  REQUIRE((*iter)->GetChildCount() == 2);
+  REQUIRE((*std::next(iter))->GetChildCount() == 1);
 
   tree.Insert(4, 4, 0);
   tree.Insert(5, 5, 0);
-  tree.PrintTree();
-
-  // tree.Insert(6, 6, 0);
-  // tree.Insert(7, 7, 0);
-
-  // tree.Insert(8, 8, 0);
-  // tree.Insert(9, 9, 0);
   REQUIRE(tree.GetHeight() == 3);
+
+  tree.Insert(6, 6, 0);
+  tree.Insert(7, 7, 0);
+
+  tree.Insert(8, 8, 0);
+  tree.Insert(9, 9, 0);
+  tree.Insert(10, 10, 0);
+  tree.Insert(11, 11, 0);
+  tree.PrintTree();
 }
 
 TEST_CASE("Basic node tests", "[TimeTreeNode]") {
@@ -50,3 +57,12 @@ TEST_CASE("Basic node tests", "[TimeTreeNode]") {
   REQUIRE(treeNode.GetNodeStart() == 0);
   REQUIRE(treeNode.GetNodeEnd() == 10);
 }
+
+// TEST_CASE("TimeTree benchmark", "[TimeTree]") {
+//   BENCHMARK("100 Inserts, arity: 2") {
+//     TimeTree<2> tree;
+//     for (int i = 0; i < 100; ++i) {
+//       tree.Insert(i, i, 0);
+//     }
+//   }
+// }

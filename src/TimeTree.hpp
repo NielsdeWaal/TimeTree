@@ -1,6 +1,7 @@
 #ifndef TIMETREE_H_
 #define TIMETREE_H_
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -9,6 +10,7 @@
 #include <memory>
 #include <tl/expected.hpp>
 #include <variant>
+#include <vector>
 
 enum Errors_e { INVALID_TIME_RANGE, NON_LEAF_PTR_INSERT };
 
@@ -51,11 +53,14 @@ public:
     return m_aryCounter;
   }
 
-  [[nodiscard]] tl::expected<void, Errors_e> UpdateTimeRange(uint64_t start, uint64_t end) {
+  [[nodiscard]] tl::expected<uint64_t, Errors_e> UpdateTimeRange(uint64_t start, uint64_t end) {
     if (start > end) {
       return tl::make_unexpected(Errors_e::INVALID_TIME_RANGE);
     }
     // TODO statistics
+    m_stats.start = start;
+    m_stats.end = end;
+    return m_stats.end;
   }
 
   void InsertChild(TimeTreeNode<arity>* child) {
@@ -72,9 +77,20 @@ public:
   [[nodiscard]] uint64_t GetNodeEnd() const {
     return m_stats.end;
   }
+  void SetNodeEnd(uint64_t end) {
+    m_stats.end = end;
+  }
 
   [[nodiscard]] std::size_t GetChildCount() const {
     return m_aryCounter;
+  }
+  // [[nodiscard]] TimeTreeNode<arity>* GetNewestChild() {
+  //   return m_children.at(m_aryCounter - 1);
+  // }
+  void UpdateNodeEnd() {
+    auto& children = std::get<std::array<TimeTreeNode<arity>*, arity>>(m_children);
+    TimeTreeNode<arity>* child = children.at(m_aryCounter - 1);
+    m_stats.end = child->GetNodeEnd();
   }
 
 private:
@@ -115,27 +131,27 @@ public:
 
   void Insert(uint64_t start, uint64_t end, uint64_t ptr) {
     if (m_aryCounter == arity) {
-      std::unique_ptr<TimeTreeNode<arity>> newLeaf =
-          std::make_unique<TimeTreeNode<arity>>(true, 0, std::numeric_limits<uint64_t>::max(), 0);
+      std::unique_ptr<TimeTreeNode<arity>> newLeaf = std::make_unique<TimeTreeNode<arity>>(true, start, end, 0);
       const std::size_t height = m_nodes.size();
       auto& leafs = m_nodes.front();
       m_aryCounter = 0;
       // m_nodes.at(0) = newLeaf.get();
       leafs.push_back(newLeaf.release());
       UpdateTreeLevels(m_nodes.front(), (height > 1) ? std::next(m_nodes.begin()) : m_nodes.end());
-      // if (height > 1) {
-      //   UpdateTreeLevels(m_nodes.front(), std::next(m_nodes.begin()));
-      // } else {
-      //   UpdateTreeLevels(m_nodes.front(), m_nodes.end());
-      // }
     }
 
     auto& leafs = m_nodes.front();
-    auto& newestLeaf = leafs.front();
+    auto& newestLeaf = leafs.back();
     m_aryCounter += 1;
     auto insertRet = newestLeaf->Insert(start, end, ptr);
     if (!insertRet) {
       fmt::print("Failed to insert values: {}\n", insertRet.error());
+    }
+
+    if (newestLeaf->GetNodeStart() == 0) {
+      newestLeaf->UpdateTimeRange(start, start);
+    } else {
+      // newestLeaf->UpdateTimeRange(newestLeaf->GetNodeStart(), end);
     }
 
     UpdateTreeStats();
@@ -147,6 +163,10 @@ public:
 
   [[nodiscard]] TimeTreeNode<arity>* GetRoot() const {
     return m_root;
+  }
+
+  [[nodiscard]] auto GetLeafsIterator() const {
+    return m_nodes.front().begin();
   }
 
   [[nodiscard]] std::size_t GetNumberLeafs() const {
@@ -164,7 +184,31 @@ public:
 
 private:
   using ListIter = typename std::deque<std::deque<TimeTreeNode<arity>*>>::iterator;
-  void UpdateTreeStats() {}
+
+  void UpdateTreeStats() {
+    // for (const auto& level : m_nodes) {
+    //   TimeTreeNode<arity>* newestLeaf = level.back();
+    ListIter iter = std::next(m_nodes.begin());
+    for (; iter != m_nodes.end(); ++iter) {
+      TimeTreeNode<arity>* newestParent = iter->back();
+      newestParent->UpdateNodeEnd();
+      // uint64_t end = newestParent->GetChildren().at(newestParent->GetChildCount())->GetNodeEnd();
+      // newestParent->SetNodeEnd(end);
+    }
+    // ListIter iter = std::next(m_nodes.begin());
+    // for (; iter != m_nodes.end(); ++iter) {
+    //   // // Another option might be to get the n of child nodes for the parent and take
+    //   // // the last n nodes of the iter level
+    //   // std::deque<TimeTreeNode<arity>>& parent = iter->back();
+    //   // std::array<TimeTreeNode<arity>*, arity>& children = parent.back().GetChildren();
+    //   auto parentLevel = std::next(iter);
+    //   auto& children = parentLevel->back()->GetChildren();
+
+    //   parentLevel->back()->SetNodeEnd(children.back()->GetNodeEnd());
+
+    //   // auto res = std::max_element(children.begin(), children.end(), )
+    // }
+  }
 
   /**
    * @brief update the tree levels
@@ -173,51 +217,15 @@ private:
    * - Link parent of new node
    * - Create new root if root is full
    * */
-  // void UpdateTreeLevels() {
-  //   std::size_t level = 0;
-  //   auto children = m_nodes.begin();
-  //   // Need to make sure there is always a level higher available, final level is root level
-  //   for (; children != std::prev(m_nodes.end()); ++children) {
-  //     const auto parentLevel = std::next(children);
-  //     const auto& rightMostParent = (*parentLevel).front();
-  //     const auto& parentChildCount = rightMostParent->GetChildCount();
-  //     const auto& leftMostChild = (*children).back();
-
-  //     // If parent has enough room, just add it to children and return from function
-  //     if (rightMostParent->GetChildCount() < arity) {
-  //       rightMostParent->InsertChild((*children).back());
-  //       return;
-  //     }
-
-  //     // Need new parent node
-  //     std::unique_ptr<TimeTreeNode<arity>> newLeaf =
-  //         std::make_unique<TimeTreeNode<arity>>(true, 0, std::numeric_limits<uint64_t>::max(), 0);
-  //     std::next(children)->push_back(newLeaf.release());
-  //   }
-  // }
-  /* void UpdateTreeLevels(std::deque<TimeTreeNode<arity>*>& childList, std::size_t level = 0) { */
-  // void UpdateTreeLevels(ListIter childList, std::size_t level = 0) {
-  //   const std::size_t rootLength = childList.size();
-  //   if (rootLength > 1) {
-  //     auto newRoot =
-  //         std::make_unique<TimeTreeNode<arity>>(false, 0, std::numeric_limits<uint64_t>::max(), 0, m_nodes.back());
-  //     // FIXME check if root needs to be released, might cause unique_ptr/moved-from issues
-  //     m_nodes.push_back({newRoot.get()});
-  //     m_root = newRoot;
-
-  //     UpdateTreeLevels(m_nodes.back(), ++level);
-  //   }
-  // }
-
-  // TODO change childList and rest to iterator
-  // If iterator.next() == iterator.end() we know we've reached the end of the list of nodes
   void UpdateTreeLevels(std::deque<TimeTreeNode<arity>*>& childList, ListIter rest, std::size_t level = 0) {
     if (rest == m_nodes.end()) {
       fmt::print("Updating root level\n");
       const std::size_t rootLength = childList.size();
       if (rootLength > 1) {
         fmt::print("Constructing new root\n");
-        auto newRoot = std::make_unique<TimeTreeNode<arity>>(false, 0, std::numeric_limits<uint64_t>::max(), 0);
+        const uint64_t tsStart = (*std::prev(childList.end(), arity))->GetNodeStart();
+        const uint64_t tsEnd = childList.back()->GetNodeEnd();
+        auto newRoot = std::make_unique<TimeTreeNode<arity>>(false, tsStart, tsEnd, 0);
 
         m_root = newRoot.release();
         m_nodes.push_back({m_root});
@@ -231,16 +239,18 @@ private:
     } else {
       fmt::print("Updating non-root level\n");
       const auto& parentLevel = *rest;
-      const auto& rightMostParent = parentLevel.front();
+      const auto& rightMostParent = parentLevel.back();
       const std::size_t parentChildCount = rightMostParent->GetChildCount();
       const auto& leftMostChild = childList.back();
 
       if (parentChildCount >= arity) {
         fmt::print("Inserting new parent\n");
-        auto newNode = std::make_unique<TimeTreeNode<arity>>(false, 0, std::numeric_limits<uint64_t>::max(), 0);
+        auto newNode =
+            std::make_unique<TimeTreeNode<arity>>(false, leftMostChild->GetNodeStart(), leftMostChild->GetNodeEnd(), 0);
 
         m_nodes.at(level + 1).push_back(newNode.release());
-        UpdateTreeLevels(*rest, std::next(rest), ++level);
+        UpdateTreeLevels(*rest, std::next(rest), level + 1);
+        m_nodes.at(level + 1).back()->InsertChild(leftMostChild);
       } else {
         rightMostParent->InsertChild(leftMostChild);
       }
