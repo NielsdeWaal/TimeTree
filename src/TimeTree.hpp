@@ -26,7 +26,7 @@ public:
       m_parent = parent;
     }
 
-    fmt::print("Constructing {}\n", (leaf ? "leaf" : "node"));
+    // fmt::print("Constructing {}\n", (leaf ? "leaf" : "node"));
 
     if (leaf) {
       m_children = std::array<TimeRange_t, arity>{{start, end, ptr}};
@@ -93,6 +93,12 @@ public:
     m_stats.end = child->GetNodeEnd();
   }
 
+  void UpdateNodeStart() {
+    auto& children = std::get<std::array<TimeTreeNode<arity>*, arity>>(m_children);
+    TimeTreeNode<arity>* child = children.at(0);
+    m_stats.start = child->GetNodeStart();
+  }
+
 private:
   struct Statistics_t {
     std::size_t min;
@@ -145,7 +151,7 @@ public:
     m_aryCounter += 1;
     auto insertRet = newestLeaf->Insert(start, end, ptr);
     if (!insertRet) {
-      fmt::print("Failed to insert values: {}\n", insertRet.error());
+      // fmt::print("Failed to insert values: {}\n", insertRet.error());
     }
 
     if (newestLeaf->GetNodeStart() == 0) {
@@ -219,32 +225,35 @@ private:
    * */
   void UpdateTreeLevels(std::deque<TimeTreeNode<arity>*>& childList, ListIter rest, std::size_t level = 0) {
     if (rest == m_nodes.end()) {
-      fmt::print("Updating root level\n");
+      // fmt::print("Updating root level\n");
       const std::size_t rootLength = childList.size();
       if (rootLength > 1) {
-        fmt::print("Constructing new root\n");
-        const uint64_t tsStart = (*std::prev(childList.end(), arity))->GetNodeStart();
+        // fmt::print("Constructing new root\n");
+        const std::size_t offset = std::min(arity, rootLength);
+        const uint64_t tsStart = (*std::prev(childList.end(), offset))->GetNodeStart();
         const uint64_t tsEnd = childList.back()->GetNodeEnd();
         auto newRoot = std::make_unique<TimeTreeNode<arity>>(false, tsStart, tsEnd, 0);
 
         m_root = newRoot.release();
         m_nodes.push_back({m_root});
 
-        for (auto it = std::prev(childList.end(), arity); it != childList.end(); ++it) {
+        for (auto it = std::prev(childList.end(), offset); it != childList.end(); ++it) {
           m_root->InsertChild(*it);
         }
+
+        // m_root->UpdateNodeStart();
 
         UpdateTreeLevels(m_nodes.back(), m_nodes.end(), ++level);
       }
     } else {
-      fmt::print("Updating non-root level\n");
+      // fmt::print("Updating non-root level\n");
       const auto& parentLevel = *rest;
       const auto& rightMostParent = parentLevel.back();
       const std::size_t parentChildCount = rightMostParent->GetChildCount();
       const auto& leftMostChild = childList.back();
 
       if (parentChildCount >= arity) {
-        fmt::print("Inserting new parent\n");
+        // fmt::print("Inserting new parent\n");
         auto newNode =
             std::make_unique<TimeTreeNode<arity>>(false, leftMostChild->GetNodeStart(), leftMostChild->GetNodeEnd(), 0);
 
