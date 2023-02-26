@@ -1,6 +1,7 @@
 #ifndef TIMETREE_H_
 #define TIMETREE_H_
 
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -8,11 +9,19 @@
 #include <fmt/format.h>
 #include <limits>
 #include <memory>
+#include <span>
 #include <tl/expected.hpp>
 #include <variant>
 #include <vector>
 
 enum Errors_e { INVALID_TIME_RANGE, NON_LEAF_PTR_INSERT };
+
+struct TimeRange_t {
+  uint64_t start;
+  uint64_t end;
+  uint64_t ptr;
+};
+
 
 template<std::size_t arity>
 class TimeTreeNode {
@@ -48,6 +57,8 @@ public:
     if (!m_leaf) {
       return tl::make_unexpected(Errors_e::NON_LEAF_PTR_INSERT);
     }
+    auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
+    children.at(m_aryCounter) = {start, end, ptr};
     m_stats.end = end;
     m_aryCounter += 1;
     return m_aryCounter;
@@ -84,6 +95,10 @@ public:
   [[nodiscard]] std::size_t GetChildCount() const {
     return m_aryCounter;
   }
+
+  TimeTreeNode<arity>* GetLink() const {
+    return m_backLink;
+  }
   // [[nodiscard]] TimeTreeNode<arity>* GetNewestChild() {
   //   return m_children.at(m_aryCounter - 1);
   // }
@@ -99,18 +114,26 @@ public:
     m_stats.start = child->GetNodeStart();
   }
 
+  void SetBackLink(TimeTreeNode<arity>* link) {
+    m_backLink = link;
+  }
+
+  // FIXME switch to span
+  [[nodiscard]] std::span<TimeRange_t> GetData() {
+    assert(m_leaf);
+    auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
+    return std::span<TimeRange_t>(children.data(), m_aryCounter);
+  }
+  // auto& children = std::get<std::array<TimeTreeNode<arity>*, arity>>(m_children);
+  // auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
+  // return std::make_pair(&children, m_aryCounter);
+
 private:
   struct Statistics_t {
     std::size_t min;
     std::size_t max;
     uint64_t start;
     uint64_t end;
-  };
-
-  struct TimeRange_t {
-    uint64_t start;
-    uint64_t end;
-    uint64_t ptr;
   };
 
   using Children = std::variant<std::array<TimeRange_t, arity>, std::array<TimeTreeNode<arity>*, arity>>;
@@ -123,10 +146,12 @@ private:
   Children m_children;
   // std::unique_ptr<TimeTreeNode> m_parent;
   TimeTreeNode* m_parent;
+  TimeTreeNode* m_backLink;
 
   std::size_t m_aryCounter{0};
 };
 
+// TODO iterator which only returns TimeRange_t's from the leafs
 template<std::size_t arity>
 class TimeTree {
 public:
@@ -141,6 +166,7 @@ public:
       const std::size_t height = m_nodes.size();
       auto& leafs = m_nodes.front();
       m_aryCounter = 0;
+      newLeaf->SetBackLink(leafs.back());
       // m_nodes.at(0) = newLeaf.get();
       leafs.push_back(newLeaf.release());
       UpdateTreeLevels(m_nodes.front(), (height > 1) ? std::next(m_nodes.begin()) : m_nodes.end());

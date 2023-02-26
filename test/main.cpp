@@ -5,7 +5,7 @@
 
 #include <catch2/catch.hpp>
 
-TEST_CASE("Basic tree tests", "[TimeTree]") {
+TEST_CASE("Basic tree insertion tests", "[TimeTree]") {
   SECTION("Arity of 2") {
     TimeTree<2> tree;
     REQUIRE(tree.GetHeight() == 1);
@@ -30,8 +30,20 @@ TEST_CASE("Basic tree tests", "[TimeTree]") {
     REQUIRE(newRoot->GetChildCount() == 2);
 
     auto iter = tree.GetLeafsIterator();
+    TimeTreeNode<2>* start = *iter;
     REQUIRE((*iter)->GetChildCount() == 2);
     REQUIRE((*std::next(iter))->GetChildCount() == 1);
+    REQUIRE((*std::next(iter))->GetLink() == start);
+
+    std::size_t count = (*iter)->GetChildCount();
+    for (std::size_t i = 0; i != count; ++i) {
+      for (const auto& ptr : (*iter)->GetData()) {
+        REQUIRE(ptr.start != 0);
+        REQUIRE(ptr.end != 0);
+        REQUIRE(ptr.ptr == 0);
+      }
+      ++iter;
+    }
 
     tree.Insert(4, 4, 0);
     tree.Insert(5, 5, 0);
@@ -52,18 +64,29 @@ TEST_CASE("Basic tree tests", "[TimeTree]") {
 
     auto startingRoot = tree.GetRoot();
 
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 1; i <= 8; ++i) {
       tree.Insert(i, i, 0);
     }
     REQUIRE(tree.GetHeight() == 1);
     REQUIRE(startingRoot->GetChildCount() == 8);
     REQUIRE(tree.GetNumberLeafs() == 1);
 
-    for (int i = 8; i < 16; ++i) {
+    for (int i = 9; i <= 16; ++i) {
       tree.Insert(i, i, 0);
     }
     REQUIRE(tree.GetHeight() == 2);
     REQUIRE(tree.GetNumberLeafs() == 2);
+
+    auto iter = tree.GetLeafsIterator();
+    std::size_t count = (*iter)->GetChildCount();
+    for (std::size_t i = 0; i != count; ++i) {
+      for (const auto& ptr : (*iter)->GetData()) {
+        REQUIRE(ptr.start != 0);
+        REQUIRE(ptr.end != 0);
+        REQUIRE(ptr.ptr == 0);
+      }
+      ++iter;
+    }
   };
 }
 
@@ -80,32 +103,32 @@ TEST_CASE("Basic node tests", "[TimeTreeNode]") {
   REQUIRE(treeNode.GetNodeEnd() == 10);
 }
 
-TEST_CASE("TimeTree benchmark", "[TimeTree]") {
-  BENCHMARK("100 Inserts, arity: 2") {
-    TimeTree<2> tree;
-    for (int i = 0; i < 100; ++i) {
-      tree.Insert(i, i, 0);
-    }
-  };
+// TEST_CASE("TimeTree benchmark", "[TimeTree]") {
+//   BENCHMARK("100 Inserts, arity: 2") {
+//     TimeTree<2> tree;
+//     for (int i = 0; i < 100; ++i) {
+//       tree.Insert(i, i, 0);
+//     }
+//   };
 
-  BENCHMARK("100k Inserts, arity: 2") {
-    TimeTree<2> tree;
-    for (int i = 0; i < 100000; ++i) {
-      tree.Insert(i, i, 0);
-    }
-  };
+//   BENCHMARK("100k Inserts, arity: 2") {
+//     TimeTree<2> tree;
+//     for (int i = 0; i < 100000; ++i) {
+//       tree.Insert(i, i, 0);
+//     }
+//   };
 
-  BENCHMARK("100 Inserts, arity: 64") {
-    TimeTree<64> tree;
-    for (int i = 0; i < 100; ++i) {
-      tree.Insert(i, i, 0);
-    }
-  };
+//   BENCHMARK("100 Inserts, arity: 64") {
+//     TimeTree<64> tree;
+//     for (int i = 0; i < 100; ++i) {
+//       tree.Insert(i, i, 0);
+//     }
+//   };
 
-  BENCHMARK("100k Inserts, arity: 64") {
-    TimeTree<64> tree;
-    for (int i = 0; i < 100000; ++i) {
-      tree.Insert(i, i, 0);
-    }
-  };
-}
+//   BENCHMARK("100k Inserts, arity: 64") {
+//     TimeTree<64> tree;
+//     for (int i = 0; i < 100000; ++i) {
+//       tree.Insert(i, i, 0);
+//     }
+//   };
+// }
