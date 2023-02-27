@@ -7,10 +7,12 @@
 #include <cstdint>
 #include <deque>
 #include <fmt/format.h>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <span>
 #include <tl/expected.hpp>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -128,6 +130,28 @@ public:
   // auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
   // return std::make_pair(&children, m_aryCounter);
 
+  std::array<TimeRange_t, arity>::iterator begin() {
+    assert(m_leaf);
+    auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
+    return children.begin();
+  }
+  std::array<TimeRange_t, arity>::iterator end() {
+    assert(m_leaf);
+    auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
+    return children.end();
+  }
+
+  std::array<TimeRange_t, arity>::iterator cbegin() const {
+    assert(m_leaf);
+    auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
+    return children.cbegin();
+  }
+  std::array<TimeRange_t, arity>::iterator cend() const {
+    assert(m_leaf);
+    auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
+    return children.cend();
+  }
+
 private:
   struct Statistics_t {
     std::size_t min;
@@ -150,6 +174,8 @@ private:
 
   std::size_t m_aryCounter{0};
 };
+
+// static_assert(std::is_trivially_constructible_v<TimeTreeNode<8>>, "TimeTreeNode should be trivially constructable");
 
 // TODO iterator which only returns TimeRange_t's from the leafs
 template<std::size_t arity>
@@ -213,6 +239,36 @@ public:
       fmt::print("\n");
     }
   }
+
+  auto begin() {
+    return m_nodes.front().begin();
+  }
+  auto end() {
+    return m_nodes.front().end();
+  }
+
+  auto cbegin() const {
+    return m_nodes.front().cbegin();
+  }
+  auto cend() const {
+    return m_nodes.front().cend();
+  }
+
+  // struct Iterator {
+  //   using iterator_category = std::forward_iterator_tag;
+  //   using difference_type = std::ptrdiff_t;
+  //   using value_type = TimeTreeNode<arity>;
+  //   using pointer = TimeTreeNode<arity>*;
+  //   using reference = TimeTreeNode<arity>&;
+  //   using TimeTreeType = std::deque<TimeTreeNode<arity>*>;
+
+  //   Iterator(TimeTreeType::iterator ptr) : m_ptr(ptr) {}
+
+  //   reference operator*() const {return *}
+
+  // private:
+  //   TimeTreeType::iterator m_iter;
+  // };
 
 private:
   using ListIter = typename std::deque<std::deque<TimeTreeNode<arity>*>>::iterator;

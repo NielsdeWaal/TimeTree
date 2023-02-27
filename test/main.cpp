@@ -1,3 +1,4 @@
+#include <cstdint>
 #define CATCH_CONFIG_MAIN // This tells Catch to provide a main() - only do this in one cpp file
 #define CATCH_CONFIG_ENABLE_BENCHMARKING
 
@@ -35,15 +36,33 @@ TEST_CASE("Basic tree insertion tests", "[TimeTree]") {
     REQUIRE((*std::next(iter))->GetChildCount() == 1);
     REQUIRE((*std::next(iter))->GetLink() == start);
 
-    std::size_t count = (*iter)->GetChildCount();
-    for (std::size_t i = 0; i != count; ++i) {
-      for (const auto& ptr : (*iter)->GetData()) {
-        REQUIRE(ptr.start != 0);
-        REQUIRE(ptr.end != 0);
-        REQUIRE(ptr.ptr == 0);
+    uint64_t tester = 1;
+    for (TimeTreeNode<2>* node : tree) {
+      REQUIRE(node->GetNodeStart() != 0);
+      REQUIRE(node->GetNodeEnd() != 0);
+      const std::span<TimeRange_t> range = node->GetData();
+      for (const TimeRange_t r : range) {
+        REQUIRE(r.start == tester);
+        REQUIRE(r.end == tester);
+        REQUIRE(r.ptr == 0);
+        ++tester;
       }
-      ++iter;
+      // for (TimeRange_t item : *node) {
+      //   REQUIRE(item.start != 0);
+      //   REQUIRE(item.end != 0);
+      //   REQUIRE(item.ptr == 0);
+      // }
     }
+
+    // std::size_t count = (*iter)->GetChildCount();
+    // for (std::size_t i = 0; i != count; ++i) {
+    //   for (const auto& ptr : (*iter)->GetData()) {
+    //     REQUIRE(ptr.start != 0);
+    //     REQUIRE(ptr.end != 0);
+    //     REQUIRE(ptr.ptr == 0);
+    //   }
+    //   ++iter;
+    // }
 
     tree.Insert(4, 4, 0);
     tree.Insert(5, 5, 0);
@@ -77,16 +96,42 @@ TEST_CASE("Basic tree insertion tests", "[TimeTree]") {
     REQUIRE(tree.GetHeight() == 2);
     REQUIRE(tree.GetNumberLeafs() == 2);
 
-    auto iter = tree.GetLeafsIterator();
-    std::size_t count = (*iter)->GetChildCount();
-    for (std::size_t i = 0; i != count; ++i) {
-      for (const auto& ptr : (*iter)->GetData()) {
-        REQUIRE(ptr.start != 0);
-        REQUIRE(ptr.end != 0);
-        REQUIRE(ptr.ptr == 0);
+    uint64_t tester = 1;
+    for (TimeTreeNode<8>* node : tree) {
+      REQUIRE(node->GetNodeStart() != 0);
+      REQUIRE(node->GetNodeEnd() != 0);
+      const std::span<TimeRange_t> range = node->GetData();
+      for (const TimeRange_t r : range) {
+        REQUIRE(r.start == tester);
+        REQUIRE(r.end == tester);
+        REQUIRE(r.ptr == 0);
+        ++tester;
       }
-      ++iter;
+      // for (TimeRange_t item : *node) {
+      //   REQUIRE(item.start != 0);
+      //   REQUIRE(item.end != 0);
+      //   REQUIRE(item.ptr == 0);
+      // }
     }
+    // for (TimeTreeNode<8>* node : tree) {
+    //   REQUIRE(node->GetNodeStart() != 0);
+    //   REQUIRE(node->GetNodeEnd() != 0);
+    //   for (TimeRange_t item : *node) {
+    //     REQUIRE(item.start != 0);
+    //     REQUIRE(item.end != 0);
+    //     REQUIRE(item.ptr == 0);
+    //   }
+    // }
+    // auto iter = tree.GetLeafsIterator();
+    // std::size_t count = (*iter)->GetChildCount();
+    // for (std::size_t i = 0; i != count; ++i) {
+    //   for (const auto& ptr : (*iter)->GetData()) {
+    //     REQUIRE(ptr.start != 0);
+    //     REQUIRE(ptr.end != 0);
+    //     REQUIRE(ptr.ptr == 0);
+    //   }
+    //   ++iter;
+    // }
   };
 }
 
