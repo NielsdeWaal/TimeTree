@@ -149,25 +149,75 @@ TEST_CASE("Basic node tests", "[TimeTreeNode]") {
 }
 
 TEST_CASE("Query tests", "[TimeTree querying]") {
-  TimeTree<2> tree;
-  for (int i = 1; i <= 16; ++i) {
-    tree.Insert(i, i, 0);
-  }
+  SECTION("Simple queries, ary: 2") {
+    TimeTree<2> tree;
+    for (int i = 1; i <= 16; ++i) {
+      tree.Insert(i, i, 0);
+    }
 
-  tree.PrintTree();
+    tree.PrintTree();
 
-  REQUIRE(tree.Query(2, 1) == tl::unexpected(Errors_e::INVALID_TIME_RANGE));
-  REQUIRE(tree.Query(20, 21) == tl::unexpected(Errors_e::RANGE_NOT_IN_DB));
+    REQUIRE(tree.Query(2, 1) == tl::unexpected(Errors_e::INVALID_TIME_RANGE));
+    REQUIRE(tree.Query(20, 21) == tl::unexpected(Errors_e::RANGE_NOT_IN_DB));
 
-  auto qRes = tree.Query(1, 1);
-  REQUIRE(qRes.has_value() == true);
-  std::vector<TimeRange_t> q = qRes.value();
+    auto qRes = tree.Query(1, 1);
+    REQUIRE(qRes.has_value() == true);
+    std::vector<TimeRange_t> q = qRes.value();
 
-  REQUIRE(q.size() == 1);
+    REQUIRE(q.size() == 1);
 
-  qRes = tree.Query(1, 16);
-  REQUIRE(qRes.has_value() == true);
-  REQUIRE(qRes->size() == 16);
+    qRes = tree.Query(1, 16);
+    REQUIRE(qRes.has_value() == true);
+    REQUIRE(qRes->size() == 16);
+  };
+  SECTION("Simple queries, ary: 4") {
+    TimeTree<4> tree;
+    for (int i = 1; i <= 16; ++i) {
+      tree.Insert(i, i, 0);
+    }
+
+    tree.PrintTree();
+
+    REQUIRE(tree.Query(2, 1) == tl::unexpected(Errors_e::INVALID_TIME_RANGE));
+    REQUIRE(tree.Query(20, 21) == tl::unexpected(Errors_e::RANGE_NOT_IN_DB));
+
+    auto qRes = tree.Query(1, 1);
+    REQUIRE(qRes.has_value() == true);
+    std::vector<TimeRange_t> q = qRes.value();
+
+    REQUIRE(q.size() == 1);
+
+    qRes = tree.Query(2, 13);
+    REQUIRE(qRes.has_value() == true);
+    REQUIRE(qRes->size() == 12);
+  };
+  SECTION("Big queries") {
+    TimeTree<64> tree;
+    for (int i = 1; i <= 100000; ++i) {
+      tree.Insert(i, i, 0);
+    }
+    // auto i = GENERATE(random(1, 100000));
+    // auto j = GENERATE(random(i, 100000 - i));
+
+    // 10 samples, generated using fair dicerolls
+    for (auto [a, b] : std::vector<std::pair<std::size_t, std::size_t>>{
+             {6347, 84682},
+             {20029, 36875},
+             {7154, 39037},
+             {48796, 49270},
+             {25895, 49156},
+             {26374, 48889},
+             {39678, 43239},
+             {48409, 51404},
+             {8831, 72340},
+             {10436, 65401}}) {
+      auto res = tree.Query(a, b);
+      REQUIRE(res.has_value());
+      REQUIRE(res->size() == (b - a) + 1);
+    }
+    // res = tree.Query(6347, 84682);
+    // REQUIRE(res.has_value());
+  };
 }
 
 // TEST_CASE("TimeTree benchmark", "[TimeTree]") {

@@ -222,7 +222,7 @@ public:
     }
 
     if (newestLeaf->GetNodeStart() == 0) {
-      newestLeaf->UpdateTimeRange(start, start);
+      assert(newestLeaf->UpdateTimeRange(start, start).has_value());
     } else {
       // newestLeaf->UpdateTimeRange(newestLeaf->GetNodeStart(), end);
     }
@@ -288,14 +288,14 @@ public:
       return tl::unexpected(Errors_e::RANGE_NOT_IN_DB);
     }
 
-    fmt::print("Found end at: {} ({} - {})\n", fmt::ptr(node), node->GetNodeStart(), node->GetNodeEnd());
+    // fmt::print("Found end at: {} ({} - {})\n", fmt::ptr(node), node->GetNodeStart(), node->GetNodeEnd());
 
     // CollectEntries(res, node, start);
-    CollectEntries(res, node, end);
+    CollectEntries(res, node, start, end);
 
-    for (const auto val : res) {
-      fmt::print("{} -> {}\n", val.start, val.end);
-    }
+    // for (const auto val : res) {
+    //   fmt::print("{} -> {}\n", val.start, val.end);
+    // }
     // while (node->GetNodeStart() >= start) {
     //   for (TimeRange_t ptr : node->GetData()) {
     //     if (!(ptr.start <= start && start <= ptr.end)) {
@@ -335,17 +335,20 @@ public:
 private:
   using ListIter = typename std::deque<std::deque<TimeTreeNode<arity>*>>::iterator;
 
-  void CollectEntries(std::vector<TimeRange_t>& results, TimeTreeNode<arity>* current, uint64_t start) {
+  void CollectEntries(std::vector<TimeRange_t>& results, TimeTreeNode<arity>* current, uint64_t start, uint64_t end) {
     // if (current->GetNodeStart() >= start) {
     //   return;
     // }
     for (TimeRange_t ptr : current->GetData()) {
-      if (ptr.start <= start && start <= ptr.end) {
-        fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
+      if (ptr.end < start || ptr.start > end) {
+        continue;
+      }
+      if (ptr.start <= end && end <= ptr.end) {
+        // fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
         results.push_back(ptr);
         return;
       }
-      fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
+      // fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
       results.push_back(ptr);
     }
 
@@ -353,7 +356,7 @@ private:
       return;
     }
 
-    CollectEntries(results, current->GetLink(), start);
+    CollectEntries(results, current->GetLink(), start, end);
   }
 
   TimeTreeNode<arity>* FindChildInRange(TimeTreeNode<arity>* node, uint64_t end) {
@@ -372,9 +375,9 @@ private:
     }
     TimeTreeNode<arity>* res = nullptr;
     for (TimeTreeNode<arity>* child : node->GetChildren()) {
-      fmt::print("Query -> node {} -> {}\n", child->GetNodeStart(), child->GetNodeEnd());
+      // fmt::print("Query -> node {} -> {}\n", child->GetNodeStart(), child->GetNodeEnd());
       if (child->GetNodeStart() <= end && end <= child->GetNodeEnd()) {
-        fmt::print("Child found\n");
+        // fmt::print("Child found\n");
         res = child;
         break;
       }
@@ -386,15 +389,15 @@ private:
   }
 
   TimeTreeNode<arity>* FindStartOfRange(TimeTreeNode<arity>* node, uint64_t start) {
-    fmt::print("Search for start: {}\n", start);
+    // fmt::print("Search for start: {}\n", start);
     if (node->IsLeaf()) {
       return node;
     }
     TimeTreeNode<arity>* res = nullptr;
     for (TimeTreeNode<arity>* child : node->GetChildren()) {
-      fmt::print("Query -> node {} -> {}\n", child->GetNodeStart(), child->GetNodeEnd());
+      // fmt::print("Query -> node {} -> {}\n", child->GetNodeStart(), child->GetNodeEnd());
       if (child->GetNodeStart() <= start && start <= child->GetNodeEnd()) {
-        fmt::print("Child found\n");
+        // fmt::print("Child found\n");
         res = child;
         break;
       }
