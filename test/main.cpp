@@ -33,8 +33,8 @@ TEST_CASE("Basic tree insertion tests", "[TimeTree]") {
     auto iter = tree.GetLeafsIterator();
     TimeTreeNode<2>* start = *iter;
     REQUIRE((*iter)->GetChildCount() == 2);
+    REQUIRE(start->GetLink() == (*std::next(iter)));
     REQUIRE((*std::next(iter))->GetChildCount() == 1);
-    REQUIRE((*std::next(iter))->GetLink() == start);
 
     uint64_t tester = 1;
     for (TimeTreeNode<2>* node : tree) {
@@ -146,6 +146,28 @@ TEST_CASE("Basic node tests", "[TimeTreeNode]") {
   REQUIRE(treeNode.Insert(11, 12, 0) == tl::unexpected(Errors_e::NON_LEAF_PTR_INSERT));
   REQUIRE(treeNode.GetNodeStart() == 0);
   REQUIRE(treeNode.GetNodeEnd() == 10);
+}
+
+TEST_CASE("Query tests", "[TimeTree querying]") {
+  TimeTree<2> tree;
+  for (int i = 1; i <= 16; ++i) {
+    tree.Insert(i, i, 0);
+  }
+
+  tree.PrintTree();
+
+  REQUIRE(tree.Query(2, 1) == tl::unexpected(Errors_e::INVALID_TIME_RANGE));
+  REQUIRE(tree.Query(20, 21) == tl::unexpected(Errors_e::RANGE_NOT_IN_DB));
+
+  auto qRes = tree.Query(1, 1);
+  REQUIRE(qRes.has_value() == true);
+  std::vector<TimeRange_t> q = qRes.value();
+
+  REQUIRE(q.size() == 1);
+
+  qRes = tree.Query(1, 16);
+  REQUIRE(qRes.has_value() == true);
+  REQUIRE(qRes->size() == 16);
 }
 
 // TEST_CASE("TimeTree benchmark", "[TimeTree]") {

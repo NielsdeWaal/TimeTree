@@ -16,7 +16,7 @@
 #include <variant>
 #include <vector>
 
-enum Errors_e { INVALID_TIME_RANGE, NON_LEAF_PTR_INSERT };
+enum Errors_e { INVALID_TIME_RANGE, NON_LEAF_PTR_INSERT, RANGE_NOT_IN_DB };
 
 struct TimeRange_t {
   uint64_t start;
@@ -120,11 +120,21 @@ public:
     m_backLink = link;
   }
 
+  bool IsLeaf() const {
+    return m_leaf;
+  }
+
   // FIXME switch to span
   [[nodiscard]] std::span<TimeRange_t> GetData() {
     assert(m_leaf);
     auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
     return std::span<TimeRange_t>(children.data(), m_aryCounter);
+  }
+
+  [[nodiscard]] std::span<TimeTreeNode<arity>*> GetChildren() {
+    assert(!m_leaf);
+    auto& children = std::get<std::array<TimeTreeNode<arity>*, arity>>(m_children);
+    return std::span<TimeTreeNode<arity>*>(children.data(), m_aryCounter);
   }
   // auto& children = std::get<std::array<TimeTreeNode<arity>*, arity>>(m_children);
   // auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
@@ -170,12 +180,16 @@ private:
   Children m_children;
   // std::unique_ptr<TimeTreeNode> m_parent;
   TimeTreeNode* m_parent;
-  TimeTreeNode* m_backLink;
+  TimeTreeNode* m_backLink{nullptr};
 
   std::size_t m_aryCounter{0};
 };
 
-// static_assert(std::is_trivially_constructible_v<TimeTreeNode<8>>, "TimeTreeNode should be trivially constructable");
+static_assert(std::is_trivially_copy_assignable_v<TimeRange_t>, "message");
+
+// static_assert(
+//     std::is_trivially_constructible_v<TimeTreeNode<8>, bool, uint64_t, uint64_t>,
+//     "TimeTreeNode should be trivially constructable");
 
 // TODO iterator which only returns TimeRange_t's from the leafs
 template<std::size_t arity>
@@ -192,7 +206,8 @@ public:
       const std::size_t height = m_nodes.size();
       auto& leafs = m_nodes.front();
       m_aryCounter = 0;
-      newLeaf->SetBackLink(leafs.back());
+      // newLeaf->SetBackLink(leafs.back());
+      leafs.back()->SetBackLink(newLeaf.get());
       // m_nodes.at(0) = newLeaf.get();
       leafs.push_back(newLeaf.release());
       UpdateTreeLevels(m_nodes.front(), (height > 1) ? std::next(m_nodes.begin()) : m_nodes.end());
@@ -254,6 +269,53 @@ public:
     return m_nodes.front().cend();
   }
 
+  tl::expected<std::vector<TimeRange_t>, Errors_e> Query(uint64_t start, uint64_t end) {
+    if (start > end) {
+      return tl::unexpected(Errors_e::INVALID_TIME_RANGE);
+    }
+    std::vector<TimeRange_t> res;
+
+    // TimeTreeNode<arity>* node = FindEndOfRange(m_root, end);
+    TimeTreeNode<arity>* node = FindStartOfRange(m_root, start);
+    // while (!node->IsLeaf()) {
+    //   node = FindChildInRange(node, end);
+    //   if (node == nullptr) {
+    //     return tl::unexpected(Errors_e::RANGE_NOT_IN_DB);
+    //   }
+    // }
+
+    if (node == nullptr) {
+      return tl::unexpected(Errors_e::RANGE_NOT_IN_DB);
+    }
+
+    fmt::print("Found end at: {} ({} - {})\n", fmt::ptr(node), node->GetNodeStart(), node->GetNodeEnd());
+
+    // CollectEntries(res, node, start);
+    CollectEntries(res, node, end);
+
+    for (const auto val : res) {
+      fmt::print("{} -> {}\n", val.start, val.end);
+    }
+    // while (node->GetNodeStart() >= start) {
+    //   for (TimeRange_t ptr : node->GetData()) {
+    //     if (!(ptr.start <= start && start <= ptr.end)) {
+    //       fmt::print("New timerange : {} - {}\n", ptr.start, ptr.end);
+    //       res.push_back(&ptr);
+    //     }
+    //     // if (ptr.start < start) {
+    //     //   return res;
+    //     // }
+    //   }
+    //   // res.push_back(node);
+    //   if (node->GetLink() == nullptr) {
+    //     break;
+    //   }
+    //   node = node->GetLink();
+    // }
+
+    return res;
+  }
+
   // struct Iterator {
   //   using iterator_category = std::forward_iterator_tag;
   //   using difference_type = std::ptrdiff_t;
@@ -272,6 +334,76 @@ public:
 
 private:
   using ListIter = typename std::deque<std::deque<TimeTreeNode<arity>*>>::iterator;
+
+  void CollectEntries(std::vector<TimeRange_t>& results, TimeTreeNode<arity>* current, uint64_t start) {
+    // if (current->GetNodeStart() >= start) {
+    //   return;
+    // }
+    for (TimeRange_t ptr : current->GetData()) {
+      if (ptr.start <= start && start <= ptr.end) {
+        fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
+        results.push_back(ptr);
+        return;
+      }
+      fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
+      results.push_back(ptr);
+    }
+
+    if (current->GetLink() == nullptr) {
+      return;
+    }
+
+    CollectEntries(results, current->GetLink(), start);
+  }
+
+  TimeTreeNode<arity>* FindChildInRange(TimeTreeNode<arity>* node, uint64_t end) {
+    for (auto child : node->GetChildren()) {
+      if (child->GetNodeStart() <= end && end <= child->GetNodeEnd()) {
+        return child;
+      }
+    }
+    return nullptr;
+  }
+
+  TimeTreeNode<arity>* FindEndOfRange(TimeTreeNode<arity>* node, uint64_t end) {
+    fmt::print("Search for end: {}\n", end);
+    if (node->IsLeaf()) {
+      return node;
+    }
+    TimeTreeNode<arity>* res = nullptr;
+    for (TimeTreeNode<arity>* child : node->GetChildren()) {
+      fmt::print("Query -> node {} -> {}\n", child->GetNodeStart(), child->GetNodeEnd());
+      if (child->GetNodeStart() <= end && end <= child->GetNodeEnd()) {
+        fmt::print("Child found\n");
+        res = child;
+        break;
+      }
+    }
+    if (res == nullptr) {
+      return nullptr;
+    }
+    return FindEndOfRange(res, end);
+  }
+
+  TimeTreeNode<arity>* FindStartOfRange(TimeTreeNode<arity>* node, uint64_t start) {
+    fmt::print("Search for start: {}\n", start);
+    if (node->IsLeaf()) {
+      return node;
+    }
+    TimeTreeNode<arity>* res = nullptr;
+    for (TimeTreeNode<arity>* child : node->GetChildren()) {
+      fmt::print("Query -> node {} -> {}\n", child->GetNodeStart(), child->GetNodeEnd());
+      if (child->GetNodeStart() <= start && start <= child->GetNodeEnd()) {
+        fmt::print("Child found\n");
+        res = child;
+        break;
+      }
+    }
+    if (res == nullptr) {
+      return nullptr;
+    }
+    return FindStartOfRange(res, start);
+  }
 
   void UpdateTreeStats() {
     // for (const auto& level : m_nodes) {
