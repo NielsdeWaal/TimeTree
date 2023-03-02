@@ -37,10 +37,10 @@ TEST_CASE("Basic tree insertion tests", "[TimeTree]") {
     REQUIRE((*std::next(iter))->GetChildCount() == 1);
 
     uint64_t tester = 1;
-    for (TimeTreeNode<2>* node : tree) {
-      REQUIRE(node->GetNodeStart() != 0);
-      REQUIRE(node->GetNodeEnd() != 0);
-      const std::span<TimeRange_t> range = node->GetData();
+    for (TimeTreeNode<2>& node : tree) {
+      REQUIRE(node.GetNodeStart() != 0);
+      REQUIRE(node.GetNodeEnd() != 0);
+      const std::span<TimeRange_t> range = node.GetData();
       for (const TimeRange_t r : range) {
         REQUIRE(r.start == tester);
         REQUIRE(r.end == tester);
@@ -97,10 +97,10 @@ TEST_CASE("Basic tree insertion tests", "[TimeTree]") {
     REQUIRE(tree.GetNumberLeafs() == 2);
 
     uint64_t tester = 1;
-    for (TimeTreeNode<8>* node : tree) {
-      REQUIRE(node->GetNodeStart() != 0);
-      REQUIRE(node->GetNodeEnd() != 0);
-      const std::span<TimeRange_t> range = node->GetData();
+    for (TimeTreeNode<8>& node : tree) {
+      REQUIRE(node.GetNodeStart() != 0);
+      REQUIRE(node.GetNodeEnd() != 0);
+      const std::span<TimeRange_t> range = node.GetData();
       for (const TimeRange_t r : range) {
         REQUIRE(r.start == tester);
         REQUIRE(r.end == tester);

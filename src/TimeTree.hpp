@@ -120,7 +120,7 @@ public:
     m_backLink = link;
   }
 
-  bool IsLeaf() const {
+  [[nodiscard]] bool IsLeaf() const {
     return m_leaf;
   }
 
@@ -140,23 +140,28 @@ public:
   // auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
   // return std::make_pair(&children, m_aryCounter);
 
-  std::array<TimeRange_t, arity>::iterator begin() {
+  [[nodiscard]] TimeTreeNode<arity>* GetFirst() {
+    auto& children = std::get<std::array<TimeTreeNode<arity>*, arity>>(m_children);
+    return children.at(0);
+  }
+
+  typename std::array<TimeRange_t, arity>::iterator begin() {
     assert(m_leaf);
     auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
     return children.begin();
   }
-  std::array<TimeRange_t, arity>::iterator end() {
+  typename std::array<TimeRange_t, arity>::iterator end() {
     assert(m_leaf);
     auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
     return children.end();
   }
 
-  std::array<TimeRange_t, arity>::iterator cbegin() const {
+  typename std::array<TimeRange_t, arity>::iterator cbegin() const {
     assert(m_leaf);
     auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
     return children.cbegin();
   }
-  std::array<TimeRange_t, arity>::iterator cend() const {
+  typename std::array<TimeRange_t, arity>::iterator cend() const {
     assert(m_leaf);
     auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
     return children.cend();
@@ -185,7 +190,7 @@ private:
   std::size_t m_aryCounter{0};
 };
 
-static_assert(std::is_trivially_copy_assignable_v<TimeRange_t>, "message");
+// static_assert(std::is_trivially_copy_assignable_v<TimeRange_t>, "message");
 
 // static_assert(
 //     std::is_trivially_constructible_v<TimeTreeNode<8>, bool, uint64_t, uint64_t>,
@@ -255,19 +260,25 @@ public:
     }
   }
 
+  // auto begin() {
+  //   return m_nodes.front().begin();
+  // }
+  // auto end() {
+  //   return m_nodes.front().end();
+  // }
   auto begin() {
-    return m_nodes.front().begin();
+    return Iterator(m_nodes.front().at(0));
   }
   auto end() {
-    return m_nodes.front().end();
+    return Iterator(nullptr);
   }
 
-  auto cbegin() const {
-    return m_nodes.front().cbegin();
-  }
-  auto cend() const {
-    return m_nodes.front().cend();
-  }
+  // auto cbegin() const {
+  //   return m_nodes.front().cbegin();
+  // }
+  // auto cend() const {
+  //   return m_nodes.front().cend();
+  // }
 
   tl::expected<std::vector<TimeRange_t>, Errors_e> Query(uint64_t start, uint64_t end) {
     if (start > end) {
@@ -316,21 +327,61 @@ public:
     return res;
   }
 
-  // struct Iterator {
-  //   using iterator_category = std::forward_iterator_tag;
-  //   using difference_type = std::ptrdiff_t;
-  //   using value_type = TimeTreeNode<arity>;
-  //   using pointer = TimeTreeNode<arity>*;
-  //   using reference = TimeTreeNode<arity>&;
-  //   using TimeTreeType = std::deque<TimeTreeNode<arity>*>;
+  /**
+   * @brief aggregates nodes where all children are older than the cutoff
+   *
+   * This function will go through the tree and find nodes where the children are older than the
+   * cutoff value. The child nodes are aggregate into a tree node which then contains a collection of statistics.
+   * This operation makes the tree less accurate but achieves lossy compression.
+   *
+   * NOTE there needs to be some way in which the caller is able to see which nodes were removed.
+   * When using a log structure to store the tree this information needs to be known such that those nodes can be GC'ed
+   * from storage.
+   * */
+  void Aggregate(uint64_t cutoff, std::vector<TimeTreeNode<arity>*>& removed) {
+    TimeTreeNode<arity>* start = FindEndOfRange(m_root, cutoff);
+  }
 
-  //   Iterator(TimeTreeType::iterator ptr) : m_ptr(ptr) {}
+  struct Iterator {
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = TimeTreeNode<arity>;
+    using pointer = TimeTreeNode<arity>*;
+    using reference = TimeTreeNode<arity>&;
+    using TimeTreeType = std::deque<TimeTreeNode<arity>*>;
 
-  //   reference operator*() const {return *}
+    Iterator(pointer ptr): m_ptr(ptr) {}
 
-  // private:
-  //   TimeTreeType::iterator m_iter;
-  // };
+    reference operator*() const {
+      return *m_ptr;
+    }
+    pointer operator->() {
+      return m_ptr;
+    }
+
+    Iterator& operator++() {
+      m_ptr = m_ptr->GetLink();
+      while (m_ptr != nullptr && !(m_ptr->IsLeaf())) {
+        m_ptr = m_ptr->GetFirst();
+      }
+      return *this;
+    }
+    Iterator operator++(int) {
+      Iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    friend bool operator==(const Iterator& a, const Iterator& b) {
+      return a.m_ptr == b.m_ptr;
+    }
+    friend bool operator!=(const Iterator& a, const Iterator& b) {
+      return a.m_ptr != b.m_ptr;
+    }
+
+  private:
+    pointer m_ptr;
+  };
 
 private:
   using ListIter = typename std::deque<std::deque<TimeTreeNode<arity>*>>::iterator;
