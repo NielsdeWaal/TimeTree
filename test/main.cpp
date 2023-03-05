@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <deque>
 #define CATCH_CONFIG_MAIN // This tells Catch to provide a main() - only do this in one cpp file
 #define CATCH_CONFIG_ENABLE_BENCHMARKING
 
@@ -191,6 +192,23 @@ TEST_CASE("Query tests", "[TimeTree querying]") {
     REQUIRE(qRes.has_value() == true);
     REQUIRE(qRes->size() == 12);
   };
+  SECTION("Sparse queries") {
+    TimeTree<4> tree;
+    for (int i = 10; i <= 100; i += 10) {
+      tree.Insert(i, i + 5, 0);
+    }
+
+    tree.PrintTree();
+
+    auto qRes = tree.Query(50, 60);
+    REQUIRE(qRes.has_value() == true);
+    REQUIRE(qRes->size() == 2);
+
+    qRes = tree.Query(45, 55);
+    REQUIRE(qRes != tl::unexpected(Errors_e::RANGE_NOT_IN_DB));
+    REQUIRE(qRes.has_value() == true);
+    REQUIRE(qRes->size() == 2);
+  };
   SECTION("Big queries") {
     TimeTree<64> tree;
     for (int i = 1; i <= 100000; ++i) {
@@ -218,6 +236,38 @@ TEST_CASE("Query tests", "[TimeTree querying]") {
     // res = tree.Query(6347, 84682);
     // REQUIRE(res.has_value());
   };
+}
+
+TEST_CASE("TimeTree leaf iterator", "[TimeTree]") {
+  TimeTree<4> tree;
+  for (int i = 1; i <= 32; ++i) {
+    tree.Insert(i, i, 0);
+  }
+
+  std::deque<std::deque<TimeTreeNode<4>*>>& nodes = tree.Data();
+  nodes.at(0).erase(nodes.at(0).begin(), nodes.at(0).begin() + 4);
+  nodes.at(1).front()->ConvertToLeaf();
+
+  for (TimeTreeNode<4>& node : tree) {
+    fmt::print("{} -> {}\n", node.GetNodeStart(), node.GetNodeEnd());
+  }
+
+  // auto it = tree.begin();
+  // for (int i = 0; i < 4; ++i) {
+  //   // it->ConvertToLeaf();
+  //   it = std::next(it);
+  // }
+}
+
+TEST_CASE("TimeTree aggregation", "[TimeTree]") {
+  TimeTree<4> tree;
+  for (int i = 1; i <= 32; ++i) {
+    tree.Insert(i, i, 0);
+  }
+
+  std::vector<uint64_t> res;
+  tree.Aggregate(5, res);
+  REQUIRE(res.size() == 4);
 }
 
 // TEST_CASE("TimeTree benchmark", "[TimeTree]") {

@@ -94,6 +94,10 @@ public:
     m_stats.end = end;
   }
 
+  void ConvertToLeaf() {
+    m_leaf = true;
+  }
+
   [[nodiscard]] std::size_t GetChildCount() const {
     return m_aryCounter;
   }
@@ -260,6 +264,10 @@ public:
     }
   }
 
+  auto& Data() {
+    return m_nodes;
+  }
+
   // auto begin() {
   //   return m_nodes.front().begin();
   // }
@@ -267,7 +275,12 @@ public:
   //   return m_nodes.front().end();
   // }
   auto begin() {
-    return Iterator(m_nodes.front().at(0));
+    TimeTreeNode<arity>* res = m_root;
+    while (!res->IsLeaf()) {
+      res = res->GetFirst();
+    }
+    return Iterator(res);
+    // return Iterator(m_nodes.front().at(0));
   }
   auto end() {
     return Iterator(nullptr);
@@ -283,6 +296,9 @@ public:
   tl::expected<std::vector<TimeRange_t>, Errors_e> Query(uint64_t start, uint64_t end) {
     if (start > end) {
       return tl::unexpected(Errors_e::INVALID_TIME_RANGE);
+    }
+    if (start > m_root->GetNodeEnd() || end < m_root->GetNodeStart()) {
+      return tl::unexpected(Errors_e::RANGE_NOT_IN_DB);
     }
     std::vector<TimeRange_t> res;
 
@@ -337,9 +353,41 @@ public:
    * NOTE there needs to be some way in which the caller is able to see which nodes were removed.
    * When using a log structure to store the tree this information needs to be known such that those nodes can be GC'ed
    * from storage.
-   * */
-  void Aggregate(uint64_t cutoff, std::vector<TimeTreeNode<arity>*>& removed) {
-    TimeTreeNode<arity>* start = FindEndOfRange(m_root, cutoff);
+   *
+   * - Find largest subtree where node end is smaller than cutoff.
+   * - Choice whether to collapse entire tree in one GC round or only one level
+   *
+   * - iterate over all leaf nodes, collect all leafs where leaf.end < cutoff
+   * - Maybe insert some criteria where there can only be a single level of aggregation
+   * - TODO think about some criteria when high levels of aggregations are allowed
+   */
+  void Aggregate(uint64_t cutoff, std::vector<uint64_t>& removed) {
+    // TimeTreeNode<arity>* start = FindEndOfRange(m_root, cutoff);
+    TimeTreeNode<arity>* node = m_root;
+    while (!node->IsLeaf()) {
+      node = node->GetFirst();
+    }
+
+    fmt::print("starting node: ({} - {})\n", node->GetNodeStart(), node->GetNodeEnd());
+
+    std::vector<TimeTreeNode<arity>*> toGC;
+    // FIXME needs to be able to go down when encountering different levels of aggregation
+    while (node->GetNodeEnd() <= cutoff) {
+      toGC.push_back(node);
+      node = node->GetLink();
+    }
+
+    fmt::print("{} nodes to GC\n", toGC.size());
+
+    // Only aggregate nodes which are leaves
+    // std::erase_if(toGC.begin(), toGC.end(), [](TimeTreeNode<arity>* node) { return node->IsLeaf(); });
+
+    for (TimeTreeNode<arity>* collect : toGC) {
+      // node->Aggregate();
+      for (TimeRange_t range : collect->GetData()) {
+        removed.push_back(range.ptr);
+      }
+    }
   }
 
   struct Iterator {
@@ -444,6 +492,10 @@ private:
     if (node->IsLeaf()) {
       return node;
     }
+    // If the start does not lie with the range of a node, but we cam across a value before the
+    // start we cap the start value to the end of that node.
+    bool startSeen = false;
+    uint64_t startCap = 0;
     TimeTreeNode<arity>* res = nullptr;
     for (TimeTreeNode<arity>* child : node->GetChildren()) {
       // fmt::print("Query -> node {} -> {}\n", child->GetNodeStart(), child->GetNodeEnd());
@@ -452,12 +504,25 @@ private:
         res = child;
         break;
       }
+      // Start lies between previous node and this node
+      if (child->GetNodeStart() > start && startCap != 0) {
+        res = child;
+        // fmt::print("Clamping to older node, start set to: ({}-{})", res->GetNodeStart(), res->GetNodeEnd());
+        break;
+      }
+      if (child->GetNodeEnd() < start) {
+        startSeen = true;
+        startCap = child->GetNodeEnd();
+        // res = child;
+      }
     }
     if (res == nullptr) {
       return nullptr;
     }
     return FindStartOfRange(res, start);
   }
+
+  // TimeTreeNode<arity>* FindOldest(TimeTreeNode<arity>* node) { }
 
   void UpdateTreeStats() {
     // for (const auto& level : m_nodes) {
@@ -525,6 +590,7 @@ private:
         auto newNode =
             std::make_unique<TimeTreeNode<arity>>(false, leftMostChild->GetNodeStart(), leftMostChild->GetNodeEnd(), 0);
 
+        m_nodes.at(level + 1).back()->SetBackLink(newNode.get());
         m_nodes.at(level + 1).push_back(newNode.release());
         UpdateTreeLevels(*rest, std::next(rest), level + 1);
         m_nodes.at(level + 1).back()->InsertChild(leftMostChild);
