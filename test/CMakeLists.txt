@@ -1,4 +1,4 @@
-add_compile_options(-std=c++20 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wunused -Wpedantic)
+add_compile_options(-std=c++20 -O0 -g -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wunused -Wpedantic)
 set(testSources
   main.cpp
   )

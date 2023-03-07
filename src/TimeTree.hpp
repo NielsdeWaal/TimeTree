@@ -96,6 +96,7 @@ public:
 
   void ConvertToLeaf() {
     m_leaf = true;
+    fmt::print("Converting {}-{} to leaf\n", m_stats.start, m_stats.end);
   }
 
   [[nodiscard]] std::size_t GetChildCount() const {
@@ -149,6 +150,22 @@ public:
     return children.at(0);
   }
 
+  [[nodiscard]] std::size_t GetAggregateLevel() const {
+    return m_aggregateLevel;
+  }
+
+  void IncAggregateLevel() {
+    ++m_aggregateLevel;
+  }
+
+  [[nodiscard]] uint64_t GetAggregatePtr() const {
+    return m_aggregatePtr;
+  }
+
+  void SetAggregatePtr(uint64_t ptr) {
+    m_aggregatePtr = ptr;
+  }
+
   typename std::array<TimeRange_t, arity>::iterator begin() {
     assert(m_leaf);
     auto& children = std::get<std::array<TimeRange_t, arity>>(m_children);
@@ -185,6 +202,8 @@ private:
   Statistics_t m_stats;
   // TimeRange_t m_time;
 
+  std::size_t m_aggregateLevel{0};
+  uint64_t m_aggregatePtr{0};
 
   Children m_children;
   // std::unique_ptr<TimeTreeNode> m_parent;
@@ -199,6 +218,9 @@ private:
 // static_assert(
 //     std::is_trivially_constructible_v<TimeTreeNode<8>, bool, uint64_t, uint64_t>,
 //     "TimeTreeNode should be trivially constructable");
+
+// static_assert(std::is_standard_layout_v<TimeTreeNode<4>> && std::is_trivial_v<TimeTreeNode<4>>, "Node needs to be
+// pod");
 
 // TODO iterator which only returns TimeRange_t's from the leafs
 template<std::size_t arity>
@@ -266,24 +288,6 @@ public:
 
   auto& Data() {
     return m_nodes;
-  }
-
-  // auto begin() {
-  //   return m_nodes.front().begin();
-  // }
-  // auto end() {
-  //   return m_nodes.front().end();
-  // }
-  auto begin() {
-    TimeTreeNode<arity>* res = m_root;
-    while (!res->IsLeaf()) {
-      res = res->GetFirst();
-    }
-    return Iterator(res);
-    // return Iterator(m_nodes.front().at(0));
-  }
-  auto end() {
-    return Iterator(nullptr);
   }
 
   // auto cbegin() const {
@@ -362,7 +366,12 @@ public:
    * - TODO think about some criteria when high levels of aggregations are allowed
    */
   void Aggregate(uint64_t cutoff, std::vector<uint64_t>& removed) {
+    struct Remove {
+      TimeTreeNode<arity>* node;
+      std::size_t level;
+    };
     // TimeTreeNode<arity>* start = FindEndOfRange(m_root, cutoff);
+    std::size_t level = m_nodes.size();
     TimeTreeNode<arity>* node = m_root;
     while (!node->IsLeaf()) {
       node = node->GetFirst();
@@ -370,10 +379,15 @@ public:
 
     fmt::print("starting node: ({} - {})\n", node->GetNodeStart(), node->GetNodeEnd());
 
-    std::vector<TimeTreeNode<arity>*> toGC;
+    std::vector<Remove> toGC;
     // FIXME needs to be able to go down when encountering different levels of aggregation
     while (node->GetNodeEnd() <= cutoff) {
-      toGC.push_back(node);
+      fmt::print(
+          "Aggregating node {}-{} (level: {})\n",
+          node->GetNodeStart(),
+          node->GetNodeEnd(),
+          node->GetAggregateLevel());
+      toGC.push_back({node, node->GetAggregateLevel()});
       node = node->GetLink();
     }
 
@@ -382,10 +396,39 @@ public:
     // Only aggregate nodes which are leaves
     // std::erase_if(toGC.begin(), toGC.end(), [](TimeTreeNode<arity>* node) { return node->IsLeaf(); });
 
-    for (TimeTreeNode<arity>* collect : toGC) {
+    // for (TimeTreeNode<arity>* collect : toGC) {
+    for (auto [collect, nodeLevel] : toGC) {
       // node->Aggregate();
-      for (TimeRange_t range : collect->GetData()) {
-        removed.push_back(range.ptr);
+      // When node is leaf level we do not need to remove anything from the node storage
+      if (nodeLevel == 0) {
+        for (TimeRange_t range : collect->GetData()) {
+          removed.push_back(range.ptr);
+        }
+        // FIXME should not be coming from here
+        collect->SetAggregatePtr(1337);
+      } else {
+        // TODO aggregate nodes at levels > 0 (i.e non-leafs)
+        // TODO pop_front * number of children removed
+        // TODO Move popping to later in the function, create some metadata
+        // which summarizes where to remove what amount from
+
+        // Check if the tree of the parent is on the same level, then these nodes can be removed
+        bool parentTreeAggregated = false;
+        for (TimeTreeNode<arity>* parentTreeNode : collect->GetParent()) {
+        }
+
+        if (nodeLevel > 1) {
+          for (uint64_t i = 0; i < arity; ++i) {
+            std::unique_ptr<TimeTreeNode<arity>> nodePtr{m_nodes.at(nodeLevel - 1).front()};
+            m_nodes.at(nodeLevel - 1).pop_front();
+          }
+          removed.push_back(collect->GetAggregatePtr());
+        }
+        // TODO set ptr to new aggregate area on disk
+      }
+      collect->IncAggregateLevel();
+      if (collect->IsLeaf() == false) {
+        collect->ConvertToLeaf();
       }
     }
   }
@@ -430,6 +473,24 @@ public:
   private:
     pointer m_ptr;
   };
+
+  // auto begin() {
+  //   return m_nodes.front().begin();
+  // }
+  // auto end() {
+  //   return m_nodes.front().end();
+  // }
+  auto begin() {
+    TimeTreeNode<arity>* res = m_root;
+    while (!res->IsLeaf()) {
+      res = res->GetFirst();
+    }
+    return Iterator(res);
+    // return Iterator(m_nodes.front().at(0));
+  }
+  auto end() {
+    return Iterator(nullptr);
+  }
 
 private:
   using ListIter = typename std::deque<std::deque<TimeTreeNode<arity>*>>::iterator;

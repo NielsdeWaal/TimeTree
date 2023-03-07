@@ -265,9 +265,24 @@ TEST_CASE("TimeTree aggregation", "[TimeTree]") {
     tree.Insert(i, i, 0);
   }
 
+  tree.PrintTree();
+
   std::vector<uint64_t> res;
   tree.Aggregate(5, res);
   REQUIRE(res.size() == 4);
+
+  for (TimeTreeNode<4> node : tree) {
+    fmt::print("{} -> {}\n", node.GetNodeStart(), node.GetNodeEnd());
+  }
+
+  res.clear();
+  tree.Aggregate(16, res);
+  REQUIRE(res.size() == 13);
+  tree.PrintTree();
+
+  for (TimeTreeNode<4>& node : tree) {
+    fmt::print("{} -> {}\n", node.GetNodeStart(), node.GetNodeEnd());
+  }
 }
 
 // TEST_CASE("TimeTree benchmark", "[TimeTree]") {
