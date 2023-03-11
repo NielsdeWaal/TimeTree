@@ -8,6 +8,18 @@ add_subdirectory(src)
 add_library(TimeTree
     src/TimeTree.hpp
 )
+
+add_executable(main
+    src/main.cpp
+    src/TimeTree.hpp
+)
+
+target_link_libraries(
+    main
+    tl::expected
+    fmt
+)
+
 add_subdirectory(test)
 
 target_include_directories(TimeTree INTERFACE
