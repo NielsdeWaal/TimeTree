@@ -267,7 +267,7 @@ TEST_CASE("TimeTree aggregation", "[TimeTree]") {
 
   tree.PrintTree();
 
-  std::vector<uint64_t> res;
+  std::vector<TimeRange_t> res;
   tree.Aggregate(5, res);
   REQUIRE(res.size() == 4);
 
@@ -279,7 +279,7 @@ TEST_CASE("TimeTree aggregation", "[TimeTree]") {
   res.clear();
   tree.Aggregate(16, res);
   fmt::print("removed size: {}\n", res.size());
-  // REQUIRE(res.size() == 13);
+  REQUIRE(res.size() == 12);
   tree.PrintTree();
 
   for (TimeTreeNode<4>& node : tree) {
@@ -289,7 +289,7 @@ TEST_CASE("TimeTree aggregation", "[TimeTree]") {
   res.clear();
   tree.Aggregate(16, res);
   fmt::print("removed size: {}\n", res.size());
-  // REQUIRE(res.size() == 13);
+  REQUIRE(res.size() == 4);
   tree.PrintTree();
 
   for (TimeTreeNode<4>& node : tree) {
@@ -299,7 +299,7 @@ TEST_CASE("TimeTree aggregation", "[TimeTree]") {
   res.clear();
   tree.Aggregate(21, res);
   fmt::print("removed size: {}\n", res.size());
-  // REQUIRE(res.size() == 13);
+  REQUIRE(res.size() == 4);
   tree.PrintTree();
 
   for (TimeTreeNode<4>& node : tree) {

@@ -366,7 +366,7 @@ public:
    * - Maybe insert some criteria where there can only be a single level of aggregation
    * - TODO think about some criteria when high levels of aggregations are allowed
    */
-  void Aggregate(uint64_t cutoff, std::vector<uint64_t>& removed) {
+  void Aggregate(uint64_t cutoff, std::vector<TimeRange_t>& removed) {
     // struct Remove {
     //   TimeTreeNode<arity>* node;
     //   std::size_t level;
@@ -412,7 +412,7 @@ public:
       if (node->IsLeaf() && node->GetAggregateLevel() == 0) {
         // Dealing with leafs
         for (TimeRange_t range : node->GetData()) {
-          removed.push_back(range.ptr);
+          removed.push_back(range);
         }
         node->SetAggregatePtr(1337);
         node->IncAggregateLevel();
@@ -437,7 +437,7 @@ public:
 
           // The entire subtree has already been aggregated so only the parent node needs to be removed
           for (TimeTreeNode<arity>* child : node->GetChildren()) {
-            removed.push_back(child->GetAggregatePtr());
+            removed.push_back({child->GetNodeStart(), child->GetNodeEnd(), child->GetAggregatePtr()});
           }
 
           node->SetAggregatePtr(1337);
