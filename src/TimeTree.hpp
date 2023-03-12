@@ -478,47 +478,10 @@ public:
         }
       }
     }
+  }
 
-    // fmt::print("{} nodes to GC\n", toGC.size());
-
-    // // Only aggregate nodes which are leaves
-    // // std::erase_if(toGC.begin(), toGC.end(), [](TimeTreeNode<arity>* node) { return node->IsLeaf(); });
-
-    // // for (TimeTreeNode<arity>* collect : toGC) {
-    // for (auto [collect, nodeLevel] : toGC) {
-    //   // node->Aggregate();
-    //   // When node is leaf level we do not need to remove anything from the node storage
-    //   if (nodeLevel == 0) {
-    //     for (TimeRange_t range : collect->GetData()) {
-    //       removed.push_back(range.ptr);
-    //     }
-    //     // FIXME should not be coming from here
-    //     collect->SetAggregatePtr(1337);
-    //   } else {
-    //     // TODO aggregate nodes at levels > 0 (i.e non-leafs)
-    //     // TODO pop_front * number of children removed
-    //     // TODO Move popping to later in the function, create some metadata
-    //     // which summarizes where to remove what amount from
-
-    //     // Check if the tree of the parent is on the same level, then these nodes can be removed
-    //     bool parentTreeAggregated = false;
-    //     // for (TimeTreeNode<arity>* parentTreeNode : collect->GetParent()) {
-    //     // }
-
-    //     if (nodeLevel > 1) {
-    //       for (uint64_t i = 0; i < arity; ++i) {
-    //         std::unique_ptr<TimeTreeNode<arity>> nodePtr{m_nodes.at(nodeLevel - 1).front()};
-    //         m_nodes.at(nodeLevel - 1).pop_front();
-    //       }
-    //       removed.push_back(collect->GetAggregatePtr());
-    //     }
-    //     // TODO set ptr to new aggregate area on disk
-    //   }
-    //   collect->IncAggregateLevel();
-    //   if (collect->IsLeaf() == false) {
-    //     collect->ConvertToLeaf();
-    //   }
-    // }
+  void UpdateAggregatePtrs(const std::vector<TimeRange_t>& updates) {
+    return;
   }
 
   struct Iterator {
@@ -587,10 +550,25 @@ private:
     // if (current->GetNodeStart() >= start) {
     //   return;
     // }
-    for (TimeRange_t ptr : current->GetData()) {
-      if (ptr.end < start || ptr.start > end) {
-        continue;
+    if (current->GetAggregateLevel() == 0 && current->IsLeaf()) {
+      for (TimeRange_t ptr : current->GetData()) {
+        if (ptr.end < start || ptr.start > end) {
+          continue;
+        }
+        if (ptr.start <= end && end <= ptr.end) {
+          // fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
+          results.push_back(ptr);
+          return;
+        }
+        // fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
+        results.push_back(ptr);
       }
+    } else if (current->GetAggregateLevel() == 1) {
+      TimeRange_t ptr{current->GetNodeStart(), current->GetNodeEnd(), current->GetAggregatePtr()};
+      // TODO check that time range is correct here
+      // if (ptr.end < start || ptr.start > end) {
+      //   continue;
+      // }
       if (ptr.start <= end && end <= ptr.end) {
         // fmt::print("Found {} -> {}\n", ptr.start, ptr.end);
         results.push_back(ptr);
@@ -604,7 +582,12 @@ private:
       return;
     }
 
-    CollectEntries(results, current->GetLink(), start, end);
+    TimeTreeNode<arity>* next = current->GetLink();
+    if (next->GetAggregateLevel() == 0 && !next->IsLeaf()) {
+      next = next->GetFirst();
+    }
+
+    CollectEntries(results, next, start, end);
   }
 
   TimeTreeNode<arity>* FindChildInRange(TimeTreeNode<arity>* node, uint64_t end) {
@@ -636,9 +619,10 @@ private:
     return FindEndOfRange(res, end);
   }
 
+  // TODO start not at leaf level, take aggregated subtree into account
   TimeTreeNode<arity>* FindStartOfRange(TimeTreeNode<arity>* node, uint64_t start) {
     // fmt::print("Search for start: {}\n", start);
-    if (node->IsLeaf()) {
+    if (node->IsLeaf() || node->GetAggregateLevel() == 1) {
       return node;
     }
     // If the start does not lie with the range of a node, but we cam across a value before the
