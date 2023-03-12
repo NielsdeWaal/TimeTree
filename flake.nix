@@ -45,11 +45,13 @@
             cmakeCurses
 
             # Development time dependencies
-            catch2
+            doctest
 
             # Build time and Run time dependencies
             fmt_9
             tl-expected
+
+            perf-tools
           ];
 
           # Setting up the environment variables you need during
