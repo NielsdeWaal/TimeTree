@@ -630,7 +630,6 @@ private:
     }
     // If the start does not lie with the range of a node, but we cam across a value before the
     // start we cap the start value to the end of that node.
-    bool startSeen = false;
     uint64_t startCap = 0;
     TimeTreeNode<arity>* res = nullptr;
     for (TimeTreeNode<arity>* child : node->GetChildren()) {
@@ -647,7 +646,6 @@ private:
         break;
       }
       if (child->GetNodeEnd() < start) {
-        startSeen = true;
         startCap = child->GetNodeEnd();
         // res = child;
       }

@@ -4,6 +4,8 @@ project(TimeTree LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
+option(TIME_TREE_TESTS "Enable tests" OFF)
+
 add_subdirectory(src)
 add_library(TimeTree
     src/TimeTree.hpp
@@ -20,7 +22,9 @@ target_link_libraries(
     fmt
 )
 
-add_subdirectory(test)
+if(TIME_TREE_TESTS)
+    add_subdirectory(test)
+endif()
 
 target_include_directories(TimeTree INTERFACE
     .
