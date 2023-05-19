@@ -26,8 +26,7 @@ struct TimeRange_t {
 };
 
 
-template<std::size_t arity>
-class TimeTreeNode {
+template<std::size_t arity> class TimeTreeNode {
 public:
   TimeTreeNode() = default;
 
@@ -224,8 +223,7 @@ private:
 // pod");
 
 // TODO iterator which only returns TimeRange_t's from the leafs
-template<std::size_t arity>
-class TimeTree {
+template<std::size_t arity> class TimeTree {
 public:
   TimeTree()
   // : m_root(std::make_unique<TimeTreeNode<arity>>(true, 0, std::numeric_limits<uint64_t>::max(), 0).release()) {

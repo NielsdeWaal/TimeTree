@@ -1,10 +1,9 @@
 #include <cstdint>
 #include <deque>
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN 
-
-#include "src/TimeTree.hpp"
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
 #include "doctest.h"
+#include "src/TimeTree.hpp"
 
 TEST_CASE("Basic tree insertion tests") {
   SUBCASE("Arity of 2") {
@@ -206,7 +205,7 @@ TEST_CASE("Query tests") {
     CHECK(qRes->size() == 12);
   };
   SUBCASE("Sparse queries") {
-    // TODO check that queries with an end in the middle of the node return 
+    // TODO check that queries with an end in the middle of the node return
     // the right amount of ptrs.
     TimeTree<4> tree;
     for (int i = 10; i <= 100; i += 10) {
@@ -292,7 +291,7 @@ TEST_CASE("TimeTree aggregation") {
   }
 
   // 4 ptrs from the leaf node 1-4 have been removed, query should return 1 aggregated node
-  auto qRes = tree.Query(1,4);
+  auto qRes = tree.Query(1, 4);
   CHECK(qRes->size() == 1);
 
   qRes->clear();
@@ -304,9 +303,9 @@ TEST_CASE("TimeTree aggregation") {
   CHECK(res.size() == 12);
 
   // This should return aggregates of 1-4, 5-8, 9-12, 13-16
-  qRes = tree.Query(1,16);
+  qRes = tree.Query(1, 16);
   CHECK(qRes->size() == 4);
-  
+
   tree.PrintTree();
 
   for (TimeTreeNode<4>& node : tree) {
@@ -321,11 +320,11 @@ TEST_CASE("TimeTree aggregation") {
   fmt::print("removed size: {}\n", res.size());
   CHECK(res.size() == 4);
 
-  qRes = tree.Query(1,16);
+  qRes = tree.Query(1, 16);
   CHECK(qRes->size() == 1);
 
   qRes->clear();
-  qRes = tree.Query(1,19);
+  qRes = tree.Query(1, 19);
   CHECK(qRes->size() == 4);
 
   tree.PrintTree();
