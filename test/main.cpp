@@ -77,6 +77,20 @@ TEST_CASE("Basic tree insertion tests") {
     tree.PrintTree();
   };
 
+  // SUBCASE("Other tests") {
+  //   TimeTree<2> tree;
+  //   CHECK(tree.GetHeight() == 1);
+
+  //   tree.Insert(1, 1, 0);
+  //   CHECK(tree.GetHeight() == 1);
+  //   tree.Insert(2, 2, 0);
+  //   CHECK(tree.GetHeight() == 1);
+
+  //   // Value has already been inserted
+  //   tree.Insert(1, 1, 0);
+  //   CHECK(tree.GetHeight() == 1);
+  // };
+
   SUBCASE("Arity of 8") {
     TimeTree<8> tree;
     CHECK(tree.GetHeight() == 1);
@@ -331,33 +345,3 @@ TEST_CASE("TimeTree aggregation") {
     fmt::print("{} -> {}\n", node.GetNodeStart(), node.GetNodeEnd());
   }
 }
-
-// TEST_CASE("TimeTree benchmark", "[TimeTree]") {
-//   BENCHMARK("100 Inserts, arity: 2") {
-//     TimeTree<2> tree;
-//     for (int i = 0; i < 100; ++i) {
-//       tree.Insert(i, i, 0);
-//     }
-//   };
-
-//   BENCHMARK("100k Inserts, arity: 2") {
-//     TimeTree<2> tree;
-//     for (int i = 0; i < 100000; ++i) {
-//       tree.Insert(i, i, 0);
-//     }
-//   };
-
-//   BENCHMARK("100 Inserts, arity: 64") {
-//     TimeTree<64> tree;
-//     for (int i = 0; i < 100; ++i) {
-//       tree.Insert(i, i, 0);
-//     }
-//   };
-
-//   BENCHMARK("100k Inserts, arity: 64") {
-//     TimeTree<64> tree;
-//     for (int i = 0; i < 100000; ++i) {
-//       tree.Insert(i, i, 0);
-//     }
-//   };
-// }

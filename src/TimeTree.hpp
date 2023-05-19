@@ -228,11 +228,16 @@ template<std::size_t arity>
 class TimeTree {
 public:
   TimeTree()
-  : m_root(std::make_unique<TimeTreeNode<arity>>(true, 0, std::numeric_limits<uint64_t>::max(), 0).release()) {
+  // : m_root(std::make_unique<TimeTreeNode<arity>>(true, 0, std::numeric_limits<uint64_t>::max(), 0).release()) {
+  : m_root(std::make_unique<TimeTreeNode<arity>>(true, 0, 0, 0).release()) {
     m_nodes.push_front({m_root});
   }
 
+  // TODO return error
   void Insert(uint64_t start, uint64_t end, uint64_t ptr) {
+    // if (start < m_root->GetNodeEnd()) {
+    //   return;
+    // }
     if (m_aryCounter == arity) {
       std::unique_ptr<TimeTreeNode<arity>> newLeaf = std::make_unique<TimeTreeNode<arity>>(true, start, end, 0);
       const std::size_t height = m_nodes.size();
