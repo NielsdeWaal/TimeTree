@@ -25,6 +25,43 @@ struct TimeRange_t {
   uint64_t ptr;
 };
 
+template<std::size_t arity> class TimeTreeNode;
+
+template<std::size_t arity>
+class INodeAllocator {
+public: 
+  virtual ~INodeAllocator() = default;
+  virtual TimeTreeNode<arity>* GetNew(bool leaf, uint64_t start, uint64_t end, uint64_t ptr, TimeTreeNode<arity>* parent = nullptr) = 0;
+};
+
+template<std::size_t arity>
+class SimpleAllocator : public INodeAllocator<arity> {
+public:
+  // ~SimpleAllocator() {
+  //   for (TimeTreeNode<arity>* ptr : ptrs) {
+  //     delete ptr;
+  //   }
+  // }
+  
+  TimeTreeNode<arity>* GetNew(bool leaf, uint64_t start, uint64_t end, uint64_t ptr, TimeTreeNode<arity>* parent = nullptr) {
+    // ptrs.push_back((new TimeTreeNode<arity>(leaf, start, end, ptr, parent)));
+    // return ptrs.back();
+    // TimeTreeNode<arity>* newptr = new TimeTreeNode<arity>(leaf, start, end, ptr, parent); 
+    // TimeTreeNode<arity>* newptr = std::make_unique<TimeTreeNode<arity>>(leaf, start, end, ptr, parent).release(); 
+    // ptrs.push_back(newptr);
+    // ptrs.emplace_back(std::make_unique<TimeTreeNode<arity>>(leaf, start, end, ptr, parent));
+    ptrs.emplace_back(new TimeTreeNode<arity>(leaf, start, end, ptr, parent));
+    // return newptr;
+    return ptrs.back().get();
+    // objs.emplace_back(leaf, start, end, ptr, parent);
+    // return &objs.back();
+  }
+
+private:
+  // std::deque<TimeTreeNode<arity>*> ptrs;
+  std::vector<std::unique_ptr<TimeTreeNode<arity>>> ptrs;
+  // std::deque<TimeTreeNode<arity>> objs;
+};
 
 template<std::size_t arity> class TimeTreeNode {
 public:
@@ -223,11 +260,12 @@ private:
 // pod");
 
 // TODO iterator which only returns TimeRange_t's from the leafs
-template<std::size_t arity> class TimeTree {
+template<std::size_t arity, typename alloc = SimpleAllocator<arity>> class TimeTree {
 public:
   TimeTree()
   // : m_root(std::make_unique<TimeTreeNode<arity>>(true, 0, std::numeric_limits<uint64_t>::max(), 0).release()) {
-  : m_root(std::make_unique<TimeTreeNode<arity>>(true, 0, 0, 0).release()) {
+  // : m_root(std::make_unique<TimeTreeNode<arity>>(true, 0, 0, 0).release()) {
+  : m_root(m_allocator.GetNew(true, 0, 0, 0)) {
     m_nodes.push_front({m_root});
   }
 
@@ -237,14 +275,17 @@ public:
     //   return;
     // }
     if (m_aryCounter == arity) {
-      std::unique_ptr<TimeTreeNode<arity>> newLeaf = std::make_unique<TimeTreeNode<arity>>(true, start, end, 0);
+      // std::unique_ptr<TimeTreeNode<arity>> newLeaf = std::make_unique<TimeTreeNode<arity>>(true, start, end, 0);
+      TimeTreeNode<arity>* newLeaf = m_allocator.GetNew(true, start, end, 0);
       const std::size_t height = m_nodes.size();
       auto& leafs = m_nodes.front();
       m_aryCounter = 0;
       // newLeaf->SetBackLink(leafs.back());
-      leafs.back()->SetBackLink(newLeaf.get());
+      // leafs.back()->SetBackLink(newLeaf.get());
+      leafs.back()->SetBackLink(newLeaf);
       // m_nodes.at(0) = newLeaf.get();
-      leafs.push_back(newLeaf.release());
+      // leafs.push_back(newLeaf.release());
+      leafs.push_back(newLeaf);
       UpdateTreeLevels(m_nodes.front(), (height > 1) ? std::next(m_nodes.begin()) : m_nodes.end());
     }
 
@@ -699,9 +740,11 @@ private:
         const std::size_t offset = std::min(arity, rootLength);
         const uint64_t tsStart = (*std::prev(childList.end(), offset))->GetNodeStart();
         const uint64_t tsEnd = childList.back()->GetNodeEnd();
-        auto newRoot = std::make_unique<TimeTreeNode<arity>>(false, tsStart, tsEnd, 0);
+        // auto newRoot = std::make_unique<TimeTreeNode<arity>>(false, tsStart, tsEnd, 0);
+        TimeTreeNode<arity>* newRoot = m_allocator.GetNew(false, tsStart, tsEnd, 0);
 
-        m_root = newRoot.release();
+        // m_root = newRoot.release();
+        m_root = newRoot;
         m_nodes.push_back({m_root});
 
         for (auto it = std::prev(childList.end(), offset); it != childList.end(); ++it) {
@@ -721,11 +764,12 @@ private:
 
       if (parentChildCount >= arity) {
         // fmt::print("Inserting new parent\n");
-        auto newNode =
-            std::make_unique<TimeTreeNode<arity>>(false, leftMostChild->GetNodeStart(), leftMostChild->GetNodeEnd(), 0);
+        // auto newNode =
+        //     std::make_unique<TimeTreeNode<arity>>(false, leftMostChild->GetNodeStart(), leftMostChild->GetNodeEnd(), 0);
 
-        m_nodes.at(level + 1).back()->SetBackLink(newNode.get());
-        m_nodes.at(level + 1).push_back(newNode.release());
+        TimeTreeNode<arity>* newNode = m_allocator.GetNew(false, leftMostChild->GetNodeStart(), leftMostChild->GetNodeEnd(), 0);
+        m_nodes.at(level + 1).back()->SetBackLink(newNode);
+        m_nodes.at(level + 1).push_back(newNode);
         UpdateTreeLevels(*rest, std::next(rest), level + 1);
         m_nodes.at(level + 1).back()->InsertChild(leftMostChild);
       } else {
@@ -740,6 +784,8 @@ private:
   std::deque<std::deque<TimeTreeNode<arity>*>> m_nodes;
 
   std::size_t m_aryCounter{0};
+
+  alloc m_allocator;
 };
 
 #endif // TIMETREE_H_
