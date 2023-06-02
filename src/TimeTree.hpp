@@ -49,12 +49,21 @@ public:
     // TimeTreeNode<arity>* newptr = new TimeTreeNode<arity>(leaf, start, end, ptr, parent); 
     // TimeTreeNode<arity>* newptr = std::make_unique<TimeTreeNode<arity>>(leaf, start, end, ptr, parent).release(); 
     // ptrs.push_back(newptr);
-    // ptrs.emplace_back(std::make_unique<TimeTreeNode<arity>>(leaf, start, end, ptr, parent));
-    ptrs.emplace_back(new TimeTreeNode<arity>(leaf, start, end, ptr, parent));
+    ptrs.emplace_back(std::make_unique<TimeTreeNode<arity>>(leaf, start, end, ptr, parent));
+    // ptrs.emplace_back(new TimeTreeNode<arity>(leaf, start, end, ptr, parent));
+    // auto obj = std::make_unique<TimeTreeNode<arity>>(leaf, start, end, ptr, parent);
+    // auto pointer = obj.get();
+    // ptrs.push_back(std::move(obj));
+    // ptrs.emplace_back(obj.get());
     // return newptr;
     return ptrs.back().get();
+    // return pointer;
     // objs.emplace_back(leaf, start, end, ptr, parent);
     // return &objs.back();
+  }
+
+  void Drop(TimeTreeNode<arity>* ptr) {
+    std::erase_if(ptrs, [&](std::unique_ptr<TimeTreeNode<arity>>& node){return node.get() == ptr;});
   }
 
 private:
@@ -487,8 +496,10 @@ public:
           node->SetAggregatePtr(1337);
           node->IncAggregateLevel();
           for (uint64_t i = 0; i < arity; ++i) {
-            std::unique_ptr<TimeTreeNode<arity>> nodePtr{m_nodes.at(level - 1).front()};
+            // std::unique_ptr<TimeTreeNode<arity>> nodePtr{m_nodes.at(level - 1).front()};
+            auto nodePtr = m_nodes.at(level - 1).front();
             m_nodes.at(level - 1).pop_front();
+            m_allocator.Drop(nodePtr);
           }
         } else {
           fmt::print("Cannot aggregate subtree, moving to children, ");

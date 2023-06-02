@@ -52,6 +52,7 @@
             tl-expected
 
             perf-tools
+            valgrind
           ];
 
           # Setting up the environment variables you need during

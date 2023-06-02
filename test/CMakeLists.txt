@@ -56,7 +56,9 @@ find_package(doctest REQUIRED)
 # find_package(nanobench REQUIRED)
 add_executable(tt-tests ${testSources})
 # add_compile_options(-std=c++20 -O0 -g -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wunused -Wpedantic)
+# target_compile_options(tt-tests PUBLIC -std=c++20 -O0 -g -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wunused -Wpedantic -fsanitize=address)
 target_compile_options(tt-tests PUBLIC -std=c++20 -O0 -g -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wunused -Wpedantic)
+# target_link_options(tt-tests PRIVATE -fsanitize=address)
 target_link_libraries(tt-tests PUBLIC
   TimeTree
   # Catch2::Catch2
