@@ -6,6 +6,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 option(TIME_TREE_TESTS "Enable tests" OFF)
 
+add_subdirectory(external)
 add_subdirectory(src)
 add_library(TimeTree
     src/TimeTree.hpp
@@ -18,7 +19,7 @@ add_executable(main
 
 target_link_libraries(
     main
-    tl::expected
+    expected
     fmt
 )
 
@@ -43,10 +44,8 @@ target_compile_options(TimeTree
     -std=c++20
 )
 
-find_package(tl-expected REQUIRED)
-
 target_link_libraries(
     TimeTree
-    tl::expected
+    expected
     fmt
     )

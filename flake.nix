@@ -47,10 +47,6 @@
             # Development time dependencies
             doctest
 
-            # Build time and Run time dependencies
-            fmt_9
-            tl-expected
-
             perf-tools
           ];
 
