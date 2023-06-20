@@ -12,7 +12,7 @@
     TimeTree<SIZE> tree;                                                                                               \
     uint64_t start = 1;                                                                                                \
     uint64_t end = 1;                                                                                                  \
-    ankerl::nanobench::Bench().minEpochIterations(40000).performanceCounters(true).run(                                \
+    ankerl::nanobench::Bench().minEpochIterations(1000000).performanceCounters(true).run(                                \
         "Arity: " #SIZE " insertion",                                                                                  \
         [&] {                                                                                                          \
           tree.Insert(start, end, 0);                                                                                  \
