@@ -25,7 +25,7 @@
   SUBCASE("Arity of " #SIZE) {                                                                                         \
     std::ofstream output("QueryArity" #SIZE);                                                                          \
     ankerl::nanobench::Bench bench;                                                                                    \
-    bench.title("Arity of " #SIZE).unit("Query").warmup(50);                                                           \
+    bench.title("Arity of " #SIZE).unit("Query");                                                                      \
     bench.performanceCounters(true);                                                                                   \
     std::list<int> tmp;                                                                                                \
     TimeTree<SIZE> tree;                                                                                               \
@@ -41,38 +41,22 @@
       ++start;                                                                                                         \
       ++end;                                                                                                           \
     }                                                                                                                  \
-    bench.minEpochIterations(800000)                                                                                   \
-        .run(                                                                                                          \
-            "Arity: " #SIZE " lookup 10",                                                                              \
-            [&] {                                                                                                      \
-              auto res = tree.Query(10, 20);                                                                           \
-              ankerl::nanobench::doNotOptimizeAway(res);                                                               \
-            })                                                                                                         \
-        .render(ankerl::nanobench::templates::csv(), output);                                                          \
-    bench                                                                                                              \
-        .run(                                                                                                          \
-            "Arity: " #SIZE " lookup 1k",                                                                              \
-            [&] {                                                                                                      \
-              auto res = tree.Query(1'000, 2'000);                                                                     \
-              ankerl::nanobench::doNotOptimizeAway(res);                                                               \
-            })                                                                                                         \
-        .render(ankerl::nanobench::templates::csv(), output);                                                          \
-    bench                                                                                                              \
-        .run(                                                                                                          \
-            "Arity: " #SIZE " lookup 10k",                                                                             \
-            [&] {                                                                                                      \
-              auto res = tree.Query(10'000, 20'000);                                                                   \
-              ankerl::nanobench::doNotOptimizeAway(res);                                                               \
-            })                                                                                                         \
-        .render(ankerl::nanobench::templates::csv(), output);                                                          \
-    bench                                                                                                              \
-        .run(                                                                                                          \
-            "Arity: " #SIZE " lookup 100k",                                                                            \
-            [&] {                                                                                                      \
-              auto res = tree.Query(100'000, 200'000);                                                                 \
-              ankerl::nanobench::doNotOptimizeAway(res);                                                               \
-            })                                                                                                         \
-        .render(ankerl::nanobench::templates::csv(), output);                                                          \
+    bench.run("Arity: " #SIZE " lookup 10", [&] {                                                                      \
+      auto res = tree.Query(10, 20);                                                                                   \
+      ankerl::nanobench::doNotOptimizeAway(res);                                                                       \
+    });                                                                                                                \
+    bench.run("Arity: " #SIZE " lookup 1k", [&] {                                                                      \
+      auto res = tree.Query(1'000, 2'000);                                                                             \
+      ankerl::nanobench::doNotOptimizeAway(res);                                                                       \
+    });                                                                                                                \
+    bench.run("Arity: " #SIZE " lookup 10k", [&] {                                                                     \
+      auto res = tree.Query(10'000, 20'000);                                                                           \
+      ankerl::nanobench::doNotOptimizeAway(res);                                                                       \
+    });                                                                                                                \
+    bench.run("Arity: " #SIZE " lookup 100k", [&] {                                                                    \
+      auto res = tree.Query(100'000, 200'000);                                                                         \
+      ankerl::nanobench::doNotOptimizeAway(res);                                                                       \
+    });                                                                                                                \
     bench                                                                                                              \
         .run(                                                                                                          \
             "Arity: " #SIZE " lookup 1M",                                                                              \
